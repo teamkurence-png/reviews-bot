@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Reviews — Admin Panel{% endblock %}
+{% block content %}
+<h1>Reviews</h1>
+
+<div class="filter-bar">
+    <a href="/reviews?status=pending" class="{{ 'active' if current_filter == 'pending' }}">Pending</a>
+    <a href="/reviews?status=approved" class="{{ 'active' if current_filter == 'approved' }}">Approved</a>
+    <a href="/reviews?status=rejected" class="{{ 'active' if current_filter == 'rejected' }}">Rejected</a>
+    <a href="/reviews?status=all" class="{{ 'active' if current_filter == 'all' }}">All</a>
+</div>
+
+{% if reviews %}
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Reviewer</th>
+            <th>Target</th>
+            <th>Type</th>
+            <th>Comment</th>
+            <th>Proof</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in reviews %}
+        <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ ("@" + r.reviewer_username) if r.reviewer_username else ("ID " ~ r.reviewer_id) }}</td>
+            <td>{{ ("@" + r.target_username) if r.target_username else ("ID " ~ r.target_id) }}</td>
+            <td><span class="badge badge-{{ r.review_type }}">{{ r.review_type }}</span></td>
+            <td class="comment-cell" title="{{ r.comment }}">{{ r.comment[:80] }}</td>
+            <td><a href="/media/{{ r.proof_file_id }}" target="_blank" class="proof-link">View</a></td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+            <td style="font-size:0.8rem;">{{ r.created_at[:16] }}</td>
+            <td class="actions">
+                {% if r.status == 'pending' %}
+                <form method="post" action="/reviews/{{ r.id }}/approve">
+                    <button class="btn btn-approve" type="submit">Approve</button>
+                </form>
+                <form method="post" action="/reviews/{{ r.id }}/reject">
+                    <button class="btn btn-reject" type="submit">Reject</button>
+                </form>
+                {% else %}
+                &mdash;
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="card" style="text-align: center; padding: 2rem;">
+    <p style="color: #888;">No reviews found for this filter.</p>
+</div>
+{% endif %}
+{% endblock %}

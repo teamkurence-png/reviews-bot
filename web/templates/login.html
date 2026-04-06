@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Login — Admin Panel{% endblock %}
+{% block content %}
+<div style="display: flex; justify-content: center; align-items: center; min-height: 60vh;">
+    <div class="card" style="padding: 3rem; text-align: center; min-width: 320px;">
+        <h1 style="margin-bottom: 1.5rem;">Admin Login</h1>
+        {% if error %}
+        <p style="color: #c92a2a; margin-bottom: 1rem; font-weight: 600;">{{ error }}</p>
+        {% endif %}
+        <form method="post" action="/login">
+            <input type="password" name="password" placeholder="Enter admin password"
+                   autofocus
+                   style="width: 100%; padding: 0.7rem 1rem; border: 1px solid #ddd; border-radius: 6px;
+                          font-size: 1rem; margin-bottom: 1rem;">
+            <button type="submit" class="btn btn-approve"
+                    style="width: 100%; padding: 0.7rem; font-size: 1rem;">
+                Log In
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

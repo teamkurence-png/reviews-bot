@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Admin Panel{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="card-grid">
+    <div class="card">
+        <div class="number">{{ counts.reviews }}</div>
+        <div class="label">Pending Reviews</div>
+        {% if counts.reviews > 0 %}
+        <a href="/reviews?status=pending" style="font-size: 0.85rem;">View &rarr;</a>
+        {% endif %}
+    </div>
+    <div class="card">
+        <div class="number">{{ counts.appeals }}</div>
+        <div class="label">Pending Appeals</div>
+        {% if counts.appeals > 0 %}
+        <a href="/appeals?status=pending" style="font-size: 0.85rem;">View &rarr;</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

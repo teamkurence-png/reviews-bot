@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Appeals — Admin Panel{% endblock %}
+{% block content %}
+<h1>Appeals</h1>
+
+<div class="filter-bar">
+    <a href="/appeals?status=pending" class="{{ 'active' if current_filter == 'pending' }}">Pending</a>
+    <a href="/appeals?status=upheld" class="{{ 'active' if current_filter == 'upheld' }}">Upheld</a>
+    <a href="/appeals?status=overturned" class="{{ 'active' if current_filter == 'overturned' }}">Overturned</a>
+    <a href="/appeals?status=all" class="{{ 'active' if current_filter == 'all' }}">All</a>
+</div>
+
+{% if appeals %}
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Appellant</th>
+            <th>Original Review</th>
+            <th>Original Reviewer</th>
+            <th>Appeal Statement</th>
+            <th>Appeal Proof</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for a in appeals %}
+        <tr>
+            <td>{{ a.id }}</td>
+            <td>{{ ("@" + a.appellant_username) if a.appellant_username else ("ID " ~ a.appellant_id) }}</td>
+            <td>
+                <span class="badge badge-{{ a.review_type }}">{{ a.review_type }}</span>
+                Review #{{ a.review_id }}
+                <br><span style="font-size:0.8rem;color:#666;">{{ a.review_comment[:60] }}</span>
+                <br><a href="/media/{{ a.review_proof_file_id }}" target="_blank" class="proof-link" style="font-size:0.8rem;">View review proof</a>
+            </td>
+            <td>{{ ("@" + a.reviewer_username) if a.reviewer_username else ("ID " ~ a.reviewer_id) }}</td>
+            <td class="comment-cell" title="{{ a.comment }}">{{ a.comment[:80] }}</td>
+            <td>
+                {% if a.proof_file_id %}
+                <a href="/media/{{ a.proof_file_id }}" target="_blank" class="proof-link">View</a>
+                {% else %}
+                <span style="color:#999;">None</span>
+                {% endif %}
+            </td>
+            <td><span class="badge badge-{{ a.status }}">{{ a.status }}</span></td>
+            <td style="font-size:0.8rem;">{{ a.created_at[:16] }}</td>
+            <td class="actions">
+                {% if a.status == 'pending' %}
+                <form method="post" action="/appeals/{{ a.id }}/uphold">
+                    <button class="btn btn-uphold" type="submit">Uphold</button>
+                </form>
+                <form method="post" action="/appeals/{{ a.id }}/overturn">
+                    <button class="btn btn-overturn" type="submit">Overturn</button>
+                </form>
+                {% else %}
+                &mdash;
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="card" style="text-align: center; padding: 2rem;">
+    <p style="color: #888;">No appeals found for this filter.</p>
+</div>
+{% endif %}
+{% endblock %}
