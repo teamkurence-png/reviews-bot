@@ -12,3 +12,9 @@ class AppealStates(StatesGroup):
     waiting_for_review_selection = State()
     waiting_for_comment = State()
     waiting_for_proof = State()
+
+
+class ReferenceStates(StatesGroup):
+    waiting_for_target = State()
+    waiting_for_ref_username = State()
+    waiting_for_proof = State()

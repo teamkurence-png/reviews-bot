@@ -96,6 +96,7 @@
         {% if admin is defined and admin %}
         <a href="/" class="{{ 'active' if request.path == '/' }}">Dashboard</a>
         <a href="/reviews" class="{{ 'active' if request.path == '/reviews' }}">Reviews</a>
+        <a href="/references" class="{{ 'active' if request.path == '/references' }}">References</a>
         <a href="/appeals" class="{{ 'active' if request.path == '/appeals' }}">Appeals</a>
         <a href="/logout">Logout ({{ admin.first_name }})</a>
         {% endif %}

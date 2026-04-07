@@ -34,7 +34,9 @@
                 <span class="badge badge-{{ a.review_type }}">{{ a.review_type }}</span>
                 Review #{{ a.review_id }}
                 <br><span style="font-size:0.8rem;color:#666;">{{ a.review_comment[:60] }}</span>
-                <br><a href="/media/{{ a.review_proof_file_id }}" target="_blank" class="proof-link" style="font-size:0.8rem;">View review proof</a>
+                {% for p in a.review_proofs %}
+                <br><a href="/media/{{ p.file_id }}" target="_blank" class="proof-link" style="font-size:0.8rem;">Review proof{% if a.review_proofs | length > 1 %} #{{ loop.index }}{% endif %}</a>
+                {% endfor %}
             </td>
             <td>{{ ("@" + a.reviewer_username) if a.reviewer_username else ("ID " ~ a.reviewer_id) }}</td>
             <td class="comment-cell" title="{{ a.comment }}">{{ a.comment[:80] }}</td>

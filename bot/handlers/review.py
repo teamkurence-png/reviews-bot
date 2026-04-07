@@ -5,19 +5,16 @@ from aiogram.types import Message, CallbackQuery
 
 from bot import db
 from bot.config import REVIEW_COOLDOWN_HOURS
-from bot.keyboards import review_type_keyboard
+from bot.keyboards import review_type_keyboard, proof_done_keyboard
 from bot.states import ReviewStates
+from bot.tracker import track_user
 from bot.utils import parse_target, check_cooldown
 
 router = Router()
 
 
 async def _start_review(message: Message, state: FSMContext) -> None:
-    await db.upsert_user(
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.first_name,
-    )
+    await track_user(message.bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
     await state.set_state(ReviewStates.waiting_for_target)
     await message.answer(
         "Who do you want to review?\n"
@@ -100,65 +97,114 @@ async def process_comment(message: Message, state: FSMContext) -> None:
         await message.answer("Please provide a more detailed description (at least 10 characters).")
         return
 
-    await state.update_data(comment=message.text)
+    await state.update_data(comment=message.text, proofs=[])
     await state.set_state(ReviewStates.waiting_for_proof)
     await message.answer(
-        "\U0001f4f8 Now upload <b>proof</b> \u2014 a screenshot, photo, video, or document.\n"
-        "This is mandatory to submit a review.",
+        "\U0001f4f8 Now upload <b>proof</b> \u2014 screenshots, photos, videos, or documents.\n"
+        "You can send <b>multiple files</b>. When you're done, press the button below.",
         parse_mode="HTML",
+    )
+
+
+def _extract_media(message: Message) -> tuple[str, str] | None:
+    """Return (file_id, media_type) from a message, or None."""
+    if message.photo:
+        return message.photo[-1].file_id, "photo"
+    if message.video:
+        return message.video.file_id, "video"
+    if message.video_note:
+        return message.video_note.file_id, "video_note"
+    if message.document:
+        return message.document.file_id, "document"
+    return None
+
+
+async def _ack_proof(message: Message, state: FSMContext) -> None:
+    """Acknowledge a received proof and show the Done button."""
+    data = await state.get_data()
+    count = len(data.get("proofs", []))
+    await message.answer(
+        f"\u2705 Proof #{count} received! Send more, or press <b>Done</b> to submit.",
+        parse_mode="HTML",
+        reply_markup=proof_done_keyboard(count),
     )
 
 
 @router.message(ReviewStates.waiting_for_proof, F.photo)
 async def process_proof_photo(message: Message, state: FSMContext, bot: Bot) -> None:
     file_id = message.photo[-1].file_id
-    await _submit_review(message, state, file_id, media_type="photo")
+    await state.update_data(proofs=(await state.get_data()).get("proofs", []) + [{"file_id": file_id, "proof_type": "photo"}])
+    await _ack_proof(message, state)
 
 
 @router.message(ReviewStates.waiting_for_proof, F.video)
 async def process_proof_video(message: Message, state: FSMContext, bot: Bot) -> None:
     file_id = message.video.file_id
-    await _submit_review(message, state, file_id, media_type="video")
+    await state.update_data(proofs=(await state.get_data()).get("proofs", []) + [{"file_id": file_id, "proof_type": "video"}])
+    await _ack_proof(message, state)
 
 
 @router.message(ReviewStates.waiting_for_proof, F.video_note)
 async def process_proof_video_note(message: Message, state: FSMContext, bot: Bot) -> None:
     file_id = message.video_note.file_id
-    await _submit_review(message, state, file_id, media_type="video_note")
+    await state.update_data(proofs=(await state.get_data()).get("proofs", []) + [{"file_id": file_id, "proof_type": "video_note"}])
+    await _ack_proof(message, state)
 
 
 @router.message(ReviewStates.waiting_for_proof, F.document)
 async def process_proof_document(message: Message, state: FSMContext, bot: Bot) -> None:
     file_id = message.document.file_id
-    await _submit_review(message, state, file_id, media_type="document")
+    await state.update_data(proofs=(await state.get_data()).get("proofs", []) + [{"file_id": file_id, "proof_type": "document"}])
+    await _ack_proof(message, state)
 
 
 @router.message(ReviewStates.waiting_for_proof)
 async def process_proof_invalid(message: Message, state: FSMContext) -> None:
-    await message.answer(
-        "Please upload <b>proof</b> \u2014 a screenshot, photo, video, or document.\n"
-        "This is mandatory to submit a review.",
-        parse_mode="HTML",
-    )
-
-
-async def _submit_review(
-    message: Message, state: FSMContext, proof_file_id: str, media_type: str
-) -> None:
     data = await state.get_data()
+    count = len(data.get("proofs", []))
+    if count > 0:
+        await message.answer(
+            "That's not a supported media type. Send a photo, video, or document, "
+            "or press <b>Done</b> to submit.",
+            parse_mode="HTML",
+            reply_markup=proof_done_keyboard(count),
+        )
+    else:
+        await message.answer(
+            "Please upload <b>proof</b> \u2014 a screenshot, photo, video, or document.\n"
+            "At least one proof is mandatory.",
+            parse_mode="HTML",
+        )
+
+
+@router.callback_query(ReviewStates.waiting_for_proof, F.data == "proof_done")
+async def process_proof_done(callback: CallbackQuery, state: FSMContext) -> None:
+    data = await state.get_data()
+    proofs = data.get("proofs", [])
+
+    if not proofs:
+        await callback.answer("You need at least one proof to submit.", show_alert=True)
+        return
+
+    primary = proofs[0]
+    extra = proofs[1:] if len(proofs) > 1 else None
 
     await db.create_review(
-        reviewer_id=message.from_user.id,
+        reviewer_id=callback.from_user.id,
         target_id=data["target_id"],
         review_type=data["review_type"],
         comment=data["comment"],
-        proof_file_id=proof_file_id,
-        proof_type=media_type,
+        proof_file_id=primary["file_id"],
+        proof_type=primary["proof_type"],
+        extra_proofs=extra,
     )
 
     await state.clear()
 
-    await message.answer(
-        "\u2705 Your review has been submitted and is pending admin verification.\n"
+    count = len(proofs)
+    await callback.message.edit_text(
+        f"\u2705 Your review has been submitted with {count} proof{'s' if count != 1 else ''} "
+        "and is pending admin verification.\n"
         "You'll be notified once it's processed."
     )
+    await callback.answer()

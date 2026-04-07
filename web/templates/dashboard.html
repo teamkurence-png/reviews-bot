@@ -11,6 +11,13 @@
         {% endif %}
     </div>
     <div class="card">
+        <div class="number">{{ counts.refs }}</div>
+        <div class="label">Pending References</div>
+        {% if counts.refs > 0 %}
+        <a href="/references?status=pending" style="font-size: 0.85rem;">View &rarr;</a>
+        {% endif %}
+    </div>
+    <div class="card">
         <div class="number">{{ counts.appeals }}</div>
         <div class="label">Pending Appeals</div>
         {% if counts.appeals > 0 %}

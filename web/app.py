@@ -19,6 +19,9 @@ from web.views import (
     appeals_list,
     uphold_appeal,
     overturn_appeal,
+    refs_list,
+    approve_ref,
+    reject_ref,
 )
 
 TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
@@ -45,6 +48,9 @@ def create_web_app(bot, bot_username: str) -> web.Application:
     app.router.add_get("/appeals", appeals_list)
     app.router.add_post("/appeals/{id}/uphold", uphold_appeal)
     app.router.add_post("/appeals/{id}/overturn", overturn_appeal)
+    app.router.add_get("/references", refs_list)
+    app.router.add_post("/references/{id}/approve", approve_ref)
+    app.router.add_post("/references/{id}/reject", reject_ref)
     app.router.add_get("/media/{file_id}", proxy_media)
 
     return app

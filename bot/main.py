@@ -10,13 +10,14 @@ from aiogram.types import BotCommand
 
 from bot.config import BOT_TOKEN, WEB_PORT
 from bot.db import init_db, close_db
-from bot.handlers import start, check, review, appeal
+from bot.handlers import start, check, review, appeal, reference
 from web.app import create_web_app
 
 BOT_COMMANDS = [
     BotCommand(command="start", description="Start the bot"),
     BotCommand(command="check", description="Look up a user's reputation"),
     BotCommand(command="review", description="Submit a vouch or negative review"),
+    BotCommand(command="addref", description="Add references for a user"),
     BotCommand(command="appeal", description="Appeal a negative review against you"),
     BotCommand(command="help", description="Show help"),
 ]
@@ -40,6 +41,7 @@ async def main() -> None:
         start.router,
         check.router,
         review.router,
+        reference.router,
         appeal.router,
     )
 

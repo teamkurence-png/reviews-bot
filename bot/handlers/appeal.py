@@ -6,16 +6,13 @@ from aiogram.types import Message, CallbackQuery
 from bot import db
 from bot.keyboards import appeal_review_keyboard, skip_proof_keyboard
 from bot.states import AppealStates
+from bot.tracker import track_user
 
 router = Router()
 
 
 async def _start_appeal(message: Message, state: FSMContext) -> None:
-    await db.upsert_user(
-        message.from_user.id,
-        message.from_user.username,
-        message.from_user.first_name,
-    )
+    await track_user(message.bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
 
     neg_reviews = await db.get_negative_reviews_for_user(message.from_user.id)
     if not neg_reviews:

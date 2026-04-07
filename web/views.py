@@ -42,6 +42,11 @@ async def reviews_list(request: web.Request) -> dict:
     if status_filter == "all":
         status_filter = None
     reviews = await db.get_all_reviews(status_filter)
+
+    for r in reviews:
+        proofs = await db.get_review_proofs(r["id"])
+        r["proofs"] = proofs if proofs else [{"file_id": r["proof_file_id"], "proof_type": r.get("proof_type", "photo")}]
+
     return {
         "admin": request["admin"],
         "reviews": reviews,
@@ -104,6 +109,11 @@ async def appeals_list(request: web.Request) -> dict:
     if status_filter == "all":
         status_filter = None
     appeals = await db.get_all_appeals(status_filter)
+
+    for a in appeals:
+        proofs = await db.get_review_proofs(a["review_id"])
+        a["review_proofs"] = proofs if proofs else [{"file_id": a["review_proof_file_id"], "proof_type": a.get("review_proof_type", "photo")}]
+
     return {
         "admin": request["admin"],
         "appeals": appeals,
@@ -158,3 +168,70 @@ async def overturn_appeal(request: web.Request) -> web.Response:
         pass
 
     raise web.HTTPFound("/appeals")
+
+
+# ── Reference moderation ─────────────────────────────────────────────
+
+@aiohttp_jinja2.template("references.html")
+async def refs_list(request: web.Request) -> dict:
+    status_filter = request.query.get("status", "pending")
+    if status_filter == "all":
+        status_filter = None
+    refs = await db.get_all_refs(status_filter)
+
+    for r in refs:
+        r["proofs"] = await db.get_ref_proofs(r["id"])
+
+    return {
+        "admin": request["admin"],
+        "refs": refs,
+        "current_filter": request.query.get("status", "pending"),
+    }
+
+
+async def approve_ref(request: web.Request) -> web.Response:
+    ref_id = int(request.match_info["id"])
+    ref = await db.get_reference(ref_id)
+    if not ref or ref["status"] != "pending":
+        raise web.HTTPNotFound(text="Reference not found or already processed.")
+
+    await db.update_reference_status(ref_id, "approved")
+
+    bot = request.app["bot"]
+    try:
+        target = await db.get_user_by_id(ref["target_id"])
+        target_display = f"@{target['username']}" if target and target["username"] else f"ID {ref['target_id']}"
+        await bot.send_message(
+            ref["submitter_id"],
+            f"\u2705 Your reference <b>@{ref['ref_username']}</b> for {target_display} "
+            f"(Ref #{ref_id}) has been <b>approved</b>.",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+    raise web.HTTPFound("/references")
+
+
+async def reject_ref(request: web.Request) -> web.Response:
+    ref_id = int(request.match_info["id"])
+    ref = await db.get_reference(ref_id)
+    if not ref or ref["status"] != "pending":
+        raise web.HTTPNotFound(text="Reference not found or already processed.")
+
+    await db.update_reference_status(ref_id, "rejected")
+
+    bot = request.app["bot"]
+    try:
+        target = await db.get_user_by_id(ref["target_id"])
+        target_display = f"@{target['username']}" if target and target["username"] else f"ID {ref['target_id']}"
+        await bot.send_message(
+            ref["submitter_id"],
+            f"\u274c Your reference <b>@{ref['ref_username']}</b> for {target_display} "
+            f"(Ref #{ref_id}) has been <b>rejected</b>.",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass
+
+    raise web.HTTPFound("/references")
