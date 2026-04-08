@@ -138,8 +138,8 @@ def format_reputation_card(
         f"\U0001f4c8 <b>Score:</b> {net_str}",
     ]
 
+    lines.append("")
     if recent_reviews:
-        lines.append("")
         lines.append("\u2500\u2500\u2500 <b>Recent Activity</b> \u2500\u2500\u2500")
         for r in recent_reviews[:5]:
             icon = "\U0001f44d" if r["review_type"] == "positive" else "\U0001f44e"
@@ -148,6 +148,9 @@ def format_reputation_card(
             ago = _time_ago(r.get("created_at", ""))
             ago_display = f"  ({ago})" if ago else ""
             lines.append(f"  {icon} @{reviewer}: {comment_preview}{ago_display}")
+    else:
+        lines.append("\u2500\u2500\u2500 <b>Recent Activity</b> \u2500\u2500\u2500")
+        lines.append("  <i>No reviews yet.</i>")
 
     if references:
         lines.append("")

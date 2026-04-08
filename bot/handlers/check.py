@@ -54,14 +54,32 @@ async def process_check_username(message: Message, state: FSMContext) -> None:
 
 
 async def _do_check(message: Message, raw_target: str) -> None:
-    if raw_target.lstrip("@").isdigit():
+    is_numeric = raw_target.lstrip("@").isdigit()
+
+    if is_numeric:
         target_user = await db.get_user_by_id(int(raw_target.lstrip("@")))
     else:
         target_user = await db.get_user_by_username(parse_target(raw_target))
 
     if not target_user:
-        await message.answer("User not found in our database. They may not have been reviewed yet.")
-        return
+        if is_numeric:
+            numeric_id = int(raw_target.lstrip("@"))
+            try:
+                chat = await message.bot.get_chat(numeric_id)
+                is_premium = bool(getattr(chat, "is_premium", False))
+                await db.upsert_user(
+                    chat.id,
+                    chat.username,
+                    chat.first_name,
+                    is_premium=is_premium,
+                )
+                target_user = await db.get_user_by_id(chat.id)
+            except Exception:
+                pass
+
+        if not target_user:
+            username = parse_target(raw_target)
+            target_user = await db.get_or_create_user_by_username(username)
 
     target_id = target_user["user_id"]
 
