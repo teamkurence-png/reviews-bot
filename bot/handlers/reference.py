@@ -13,7 +13,7 @@ router = Router()
 
 
 async def _start_addref(message: Message, state: FSMContext) -> None:
-    await track_user(message.bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
+    await track_user(message.bot, message.from_user.id, message.from_user.username, message.from_user.first_name, is_premium=bool(message.from_user.is_premium))
     await state.update_data(pending_refs=[])
     await state.set_state(ReferenceStates.waiting_for_target)
     await message.answer(

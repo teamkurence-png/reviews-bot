@@ -18,7 +18,7 @@ class CheckStates(StatesGroup):
 
 @router.message(Command("check"))
 async def cmd_check(message: Message, state: FSMContext, bot: Bot) -> None:
-    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
+    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name, is_premium=bool(message.from_user.is_premium))
 
     args = message.text.split(maxsplit=1)
     if len(args) < 2:
@@ -35,7 +35,7 @@ async def cmd_check(message: Message, state: FSMContext, bot: Bot) -> None:
 
 @router.message(F.text == "\U0001f50d Check User")
 async def btn_check(message: Message, state: FSMContext, bot: Bot) -> None:
-    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
+    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name, is_premium=bool(message.from_user.is_premium))
     await state.set_state(CheckStates.waiting_for_username)
     await message.answer(
         "Who do you want to check?\n"

@@ -118,6 +118,13 @@ async def init_db() -> None:
         """
     )
 
+    # Add is_premium column if it doesn't exist yet
+    try:
+        await db.execute("ALTER TABLE users ADD COLUMN is_premium INTEGER DEFAULT 0")
+        await db.commit()
+    except Exception:
+        pass  # column already exists
+
     # Migrate legacy single-proof rows into review_proofs if not already done
     cursor = await db.execute(
         """
@@ -139,17 +146,23 @@ async def init_db() -> None:
 
 # ── User helpers ──────────────────────────────────────────────────────
 
-async def upsert_user(user_id: int, username: str | None, first_name: str | None) -> None:
+async def upsert_user(
+    user_id: int,
+    username: str | None,
+    first_name: str | None,
+    is_premium: bool = False,
+) -> None:
     db = await get_db()
     await db.execute(
         """
-        INSERT INTO users (user_id, username, first_name)
-        VALUES (?, ?, ?)
+        INSERT INTO users (user_id, username, first_name, is_premium)
+        VALUES (?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             username   = excluded.username,
-            first_name = excluded.first_name
+            first_name = excluded.first_name,
+            is_premium = excluded.is_premium
         """,
-        (user_id, username, first_name),
+        (user_id, username, first_name, int(is_premium)),
     )
     await db.commit()
 
@@ -181,7 +194,7 @@ async def get_or_create_user_by_username(username: str) -> dict[str, Any]:
     )
     await db.commit()
     return {"user_id": placeholder_id, "username": username, "first_name": None,
-            "reputation_score": 0, "is_high_risk": 0}
+            "reputation_score": 0, "is_high_risk": 0, "is_premium": 0}
 
 
 async def get_user_by_id(user_id: int) -> dict[str, Any] | None:
@@ -189,6 +202,32 @@ async def get_user_by_id(user_id: int) -> dict[str, Any] | None:
     cursor = await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))
     row = await cursor.fetchone()
     return dict(row) if row else None
+
+
+async def merge_placeholder(placeholder_id: int, real_id: int) -> None:
+    """Re-point all data from a placeholder user to the real Telegram user,
+    then delete the placeholder row."""
+    conn = await get_db()
+
+    tables_columns = [
+        ("reviews", "reviewer_id"),
+        ("reviews", "target_id"),
+        ("appeals", "appellant_id"),
+        ("refs", "submitter_id"),
+        ("refs", "target_id"),
+        ("user_changes", "user_id"),
+        ("user_photos", "user_id"),
+    ]
+    for table, col in tables_columns:
+        await conn.execute(
+            f"UPDATE {table} SET {col} = ? WHERE {col} = ?",
+            (real_id, placeholder_id),
+        )
+
+    await conn.execute("DELETE FROM users WHERE user_id = ?", (placeholder_id,))
+    await conn.commit()
+
+    await recalculate_reputation(real_id)
 
 
 # ── Profile tracking helpers ──────────────────────────────────────────

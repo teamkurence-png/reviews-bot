@@ -16,14 +16,24 @@ async def track_user(
     username: str | None,
     first_name: str | None,
     *,
+    is_premium: bool = False,
     check_photo: bool = True,
 ) -> None:
     """Compare current profile info against stored data, log any diffs,
     then upsert the user record.
 
+    If a placeholder record exists for this username (negative ID from a
+    review submitted before the user interacted with the bot), all data is
+    merged into the real user record automatically.
+
     ``check_photo`` can be disabled to skip the API call when it's not
     needed (e.g. high-frequency handlers).
     """
+    if username and user_id > 0:
+        placeholder = await db.get_user_by_username(username)
+        if placeholder and placeholder["user_id"] < 0:
+            await db.merge_placeholder(placeholder["user_id"], user_id)
+
     existing = await db.get_user_by_id(user_id)
 
     if existing:
@@ -39,7 +49,7 @@ async def track_user(
     if check_photo and user_id > 0:
         await _track_photo(bot, user_id, is_first=(existing is None))
 
-    await db.upsert_user(user_id, username, first_name)
+    await db.upsert_user(user_id, username, first_name, is_premium=is_premium)
 
 
 async def track_target_photo(bot: Bot, user_id: int) -> None:

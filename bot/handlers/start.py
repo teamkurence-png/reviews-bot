@@ -22,7 +22,7 @@ HELP_TEXT = (
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, bot: Bot) -> None:
-    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
+    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name, is_premium=bool(message.from_user.is_premium))
     await message.answer(
         f"Welcome, {message.from_user.first_name}!\n\n{HELP_TEXT}",
         parse_mode="HTML",
@@ -33,5 +33,5 @@ async def cmd_start(message: Message, bot: Bot) -> None:
 @router.message(Command("help"))
 @router.message(F.text == "\u2753 Help")
 async def cmd_help(message: Message, bot: Bot) -> None:
-    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
+    await track_user(bot, message.from_user.id, message.from_user.username, message.from_user.first_name, is_premium=bool(message.from_user.is_premium))
     await message.answer(HELP_TEXT, parse_mode="HTML", reply_markup=main_menu_keyboard())

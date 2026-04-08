@@ -65,6 +65,15 @@ def _time_ago(date_str: str) -> str:
         return ""
 
 
+def _format_date(date_str: str) -> str:
+    """Convert a datetime string to dd.mm.yyyy format."""
+    try:
+        dt = datetime.fromisoformat(date_str)
+        return dt.strftime("%d.%m.%Y")
+    except Exception:
+        return ""
+
+
 def format_reputation_card(
     user: dict,
     positive: int,
@@ -75,9 +84,10 @@ def format_reputation_card(
     changes: list[dict] | None = None,
     photo_count: int = 0,
 ) -> str:
-    name = user.get("first_name") or "Unknown"
+    name = user.get("first_name") or "<i>not available</i>"
     username = f"@{user['username']}" if user["username"] else "N/A"
     user_id = user["user_id"]
+    is_placeholder = user_id < 0
 
     trust_score, trust_icon, trust_label = compute_trust_score(positive, negative)
     status_icon, status_label = _account_status(positive, negative, bool(user["is_high_risk"]))
@@ -86,7 +96,12 @@ def format_reputation_card(
     net = positive - negative
     net_str = f"+{net}" if net > 0 else str(net)
 
-    risk_line = "\U0001f6a8 HIGH RISK \u2014 multiple verified negative reviews" if user["is_high_risk"] else "None"
+    if user["is_high_risk"]:
+        risk_line = "\U0001f6a8 HIGH RISK \u2014 multiple verified negative reviews"
+    elif negative > 0:
+        risk_line = f"\u26a0\ufe0f {negative} negative review{'s' if negative != 1 else ''} on record"
+    else:
+        risk_line = "\u2705 None"
 
     lines = [
         "\u2501" * 24,
@@ -95,7 +110,22 @@ def format_reputation_card(
         "",
         f"\U0001f464 <b>Name:</b> {name}",
         f"\U0001f4db <b>Username:</b> {username}",
-        f"\U0001f194 <b>ID:</b> <code>{user_id}</code>",
+    ]
+
+    if is_placeholder:
+        lines.append("\U0001f194 <b>ID:</b> <i>not verified (user hasn't interacted with bot)</i>")
+    else:
+        lines.append(f"\U0001f194 <b>ID:</b> <code>{user_id}</code>")
+
+    if is_placeholder:
+        premium_line = "\u2b50 <b>Premium:</b> <i>unknown</i>"
+    elif user.get("is_premium"):
+        premium_line = "\u2b50 <b>Premium:</b> Yes"
+    else:
+        premium_line = "\u2b50 <b>Premium:</b> No"
+    lines.append(premium_line)
+
+    lines += [
         "",
         f"{trust_icon} <b>Trust Level:</b> {trust_label} ({trust_score}/100)",
         f"{status_icon} <b>Account Status:</b> {status_label}",
@@ -128,7 +158,9 @@ def format_reputation_card(
             submitter = ref.get("submitter_username") or "unknown"
             lines.append(f"  \U0001f517 @{ref['ref_username']}  \u2014 added by @{submitter}{ago_display}")
 
-    if changes or photo_count > 0:
+    has_history = bool(changes) or photo_count > 0
+
+    if has_history:
         username_changes = [c for c in (changes or []) if c["change_type"] == "username"]
         name_changes = [c for c in (changes or []) if c["change_type"] == "name"]
         photo_changes = [c for c in (changes or []) if c["change_type"] == "photo"]
@@ -137,26 +169,32 @@ def format_reputation_card(
         lines.append("\u2500\u2500\u2500 <b>Profile History</b> \u2500\u2500\u2500")
 
         if username_changes:
-            lines.append(f"\U0001f4db <b>Username changes:</b> {len(username_changes)}")
+            lines.append("\U0001f4dc <b>Username history:</b>")
             for c in username_changes[:5]:
                 old = f"@{c['old_value']}" if c["old_value"] else "<i>none</i>"
                 new = f"@{c['new_value']}" if c["new_value"] else "<i>removed</i>"
-                ago = _time_ago(c.get("detected_at", ""))
-                ago_display = f"  ({ago})" if ago else ""
-                lines.append(f"  {old} \u2192 {new}{ago_display}")
+                date_str = _format_date(c.get("detected_at", ""))
+                date_display = f" ({date_str})" if date_str else ""
+                lines.append(f"  {old} \u2192 {new}{date_display}")
 
         if name_changes:
-            lines.append(f"\U0001f464 <b>Name changes:</b> {len(name_changes)}")
+            lines.append("\U0001f464 <b>Name history:</b>")
             for c in name_changes[:5]:
                 old = c["old_value"] or "<i>none</i>"
                 new = c["new_value"] or "<i>removed</i>"
-                ago = _time_ago(c.get("detected_at", ""))
-                ago_display = f"  ({ago})" if ago else ""
-                lines.append(f"  {old} \u2192 {new}{ago_display}")
+                date_str = _format_date(c.get("detected_at", ""))
+                date_display = f" ({date_str})" if date_str else ""
+                lines.append(f"  {old} \u2192 {new}{date_display}")
 
         if photo_count > 0:
             change_note = f" ({len(photo_changes)} change{'s' if len(photo_changes) != 1 else ''})" if photo_changes else ""
             lines.append(f"\U0001f4f8 <b>Profile photos tracked:</b> {photo_count}{change_note}")
+    elif is_placeholder:
+        lines.append("")
+        lines.append("\u2500\u2500\u2500 <b>Profile History</b> \u2500\u2500\u2500")
+        lines.append("\u26a0\ufe0f <i>This user hasn't interacted with the bot yet.</i>")
+        lines.append("<i>Profile tracking (username, name, photo changes) will</i>")
+        lines.append("<i>begin once they start the bot via /start.</i>")
 
     if first_review_date:
         date_display = first_review_date[:10]

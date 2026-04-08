@@ -12,7 +12,7 @@ router = Router()
 
 
 async def _start_appeal(message: Message, state: FSMContext) -> None:
-    await track_user(message.bot, message.from_user.id, message.from_user.username, message.from_user.first_name)
+    await track_user(message.bot, message.from_user.id, message.from_user.username, message.from_user.first_name, is_premium=bool(message.from_user.is_premium))
 
     neg_reviews = await db.get_negative_reviews_for_user(message.from_user.id)
     if not neg_reviews:
